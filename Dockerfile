@@ -14,6 +14,6 @@ COPY . /app
 EXPOSE 5000
 
 ENV USERNAME "admin"
-ENV PASSWORD "test"
+ENV PASSWORD "admin123"
 
 CMD ["uwsgi", "--ini", "topaz.ini"]
