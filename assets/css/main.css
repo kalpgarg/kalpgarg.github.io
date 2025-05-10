@@ -3066,6 +3066,10 @@ input, select, textarea {
 		.inner h1 {
 			font-size: 1.4em;
 		}
+		.inner h2 {
+			font-size: 1.2em;
+		}
+		
 		
 		.inner p {
 			font-size: 0.9em !important;
