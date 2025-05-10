@@ -52,7 +52,7 @@
                             <p>Proportional-Integral-Derivative (PID) controllers are among the most widely used control mechanisms in industrial and process control applications. 
                                 Their simplicity, effectiveness, and ease of implementation make them the default choice for regulating temperature, pressure, speed, and other dynamic processes. 
                                 However, tuning the PID gains ($Kp, Ki, Kd$) to achieve desired performance characteristics—like fast settling time, minimal overshoot, and zero steady-state error—is a challenging and often system-specific task.</p>
-                            <h3>Traditional PID Tuning Methods</h3>
+                            <h4>Traditional PID Tuning Methods</h4>
                             <p>Several classical methods have been developed over the years to automate PID tuning. Some of the most prominent include:</p>
                             <ul>
                                 <li>Ziegler-Nichols Tuning Method
@@ -342,7 +342,7 @@
                               <li><strong>Overshoot</strong> \( M_p \): The maximum peak value of the response curve measured from the desired response level.</li>
                             </ul>
                             
-                            <h3>Response Plots</h3>
+                            <h4>Response Plots</h4>
                             
                             <div style="display: flex; gap: 20px;">
                               <div style="text-align: center;">
@@ -355,9 +355,10 @@
                               </div>
                             </div>
                             
-                            <h3>Performance Metrics</h3>
-                            
-                            <table border="1" cellpadding="8" cellspacing="0" style="border-collapse: collapse; text-align: center;">
+                            <h4>Performance Metrics</h4>
+                            <br>
+                            <div class="table-wrapper">
+                            <table class="alt" >
                               <thead>
                                 <tr style="background-color: #201c35; text-align: center;">
                                   <th>Method</th>
@@ -387,6 +388,7 @@
                                 </tr>
                               </tbody>
                             </table>
+                            </div>
 							<h2 id="conclusion">Conclusion</h2>
                                 <p>
                                 In this study, we explored a gradient descent-based optimization approach for tuning PID controller gains applied to a second-order system with delay. Unlike traditional methods, such as the Ziegler-Nichols technique, which often rely on empirical rules and may result in higher overshoot or longer settling time, the proposed method offers a more systematic and adaptable way to minimize a defined cost function.
