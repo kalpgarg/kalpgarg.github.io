@@ -3063,6 +3063,14 @@ input, select, textarea {
 				opacity: 1;
 			}
 
+		.inner h1 {
+			font-size: 1.4em;
+		}
+		
+		.inner p {
+			font-size: 0.9em !important;
+		}
+
 		.spotlights > section:nth-child(2) {
 			background-color: rgba(0, 0, 0, 0.05);
 		}

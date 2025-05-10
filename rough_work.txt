@@ -1,0 +1,6 @@
+To be added in about section. 
+
+I enjoy turning research ideas into practical applications and sharing my implementation experiences through articles. I value clean, readable, and self-contained code—Python is my language of choice.
+
+I'm also enthusiastic about open-source software and have contributed to several high-impact projects, including Keras, KerasCV, 🤗 Transformers, TensorFlow Hub, Keras Examples, TensorFlow Addons, and Neural Structured Learning.
+
