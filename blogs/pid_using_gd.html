@@ -6,6 +6,13 @@
 		<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
 		<link rel="stylesheet" href="../assets/css/main.css" />
 		<noscript><link rel="stylesheet" href="../assets/css/noscript.css" /></noscript>
+        <script>
+            MathJax = {
+              tex: { inlineMath: [['$', '$'], ['\\(', '\\)']] },
+              svg: { fontCache: 'global' }
+            };
+          </script>
+          <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js" async></script>
 	</head>
 	<body class="is-preload">
 
@@ -27,28 +34,409 @@
 					<section id="main" class="wrapper">
 						<div class="inner">
 							<h1 class="major">Optimal PID gains calculation using gradient descent</h1>
-							<h2>Introduction</h2>
-                            <p></p>
-							<h2>Understanding the System: Second-Order Plant with Delay</h2>
-                            <p></p>
-							<h2>PID Controller Basics</h2>
-                            <p></p>
-							<h2>Formulating the Optimization Problem</h2>
-                            <p></p>
-							<h2>Simulating the System</h2>
-                            <p></p>
-							<h2>Implementing Gradient Descent</h2>
-                            <p></p>
-							<h2>Results and Performance Comparison</h2>
-                            <p></p>
-							<h2>Challenges and Considerations</h2>
-                            <p></p>
-							<h2>Extensions and Future Work</h2>
-                            <p></p>
-							<h2>Conclusion</h2>
-                            <p></p>
-                            <h2>Appendix</h2>
-                            <p></p>
+                            <span style="font-size: 0.9em; color: #aaa;">May 10, 2025</span>
+                            <h2>Table of Contents</h2>
+                            <ul>
+                            <li><a href="#introduction">Introduction</a></li>
+                            <li><a href="#soptd">Understanding the System: Second-Order Plant with Delay</a></li>
+                            <li><a href="#pid_basics">PID Controller Basics</a></li>
+                            <li><a href="#gd_basics">Gradient Descent Basics</a></li>
+                            <li><a href="#formulation">Formulating the Optimization Problem</a></li>
+                            <li><a href="#implementation">Implementation</a></li>
+                            <li><a href="#results">Results and Performance Comparison</a></li>
+                            <li><a href="#conclusion">Conclusion</a></li>
+                            <li><a href="#references">References</a></li>
+                            </ul>
+							<h2 id="introduction">Introduction</h2>
+                            <p>Proportional-Integral-Derivative (PID) controllers are among the most widely used control mechanisms in industrial and process control applications. 
+                                Their simplicity, effectiveness, and ease of implementation make them the default choice for regulating temperature, pressure, speed, and other dynamic processes. 
+                                However, tuning the PID gains ($Kp, Ki, Kd$) to achieve desired performance characteristics—like fast settling time, minimal overshoot, and zero steady-state error—is a challenging and often system-specific task.</p>
+                            <h3>Traditional PID Tuning Methods</h3>
+                            <p>Several classical methods have been developed over the years to automate PID tuning. Some of the most prominent include:</p>
+                            <ul>
+                                <li>Ziegler-Nichols Tuning Method
+                                    <p>This empirical method is based on inducing sustained oscillations in the system and using the corresponding ultimate gain and period to compute PID parameters.
+                                        <br>Limitation: Tends to produce aggressive control action with large overshoot and may not work well for systems with delay or significant nonlinearities.
+                                        <br>Reference: Ziegler, J. G., & Nichols, N. B. (1942). Optimum settings for automatic controllers. Trans. ASME, 64(11).</p>
+                                </li>
+                                <li>Cohen-Coon Tuning
+                                    <p>Designed specifically for first-order plus dead time (FOPDT) systems, this method uses a model of the plant to determine the controller gains.
+                                        <br>Limitation: Not well-suited for higher-order or oscillatory systems, and its accuracy degrades with modeling error.
+                                        <br>Reference: Cohen, G. H., & Coon, G. A. (1953). Theoretical Considerations of Retarded Control. Trans. ASME.</p>
+                                </li>
+                                <li>Relay Auto-Tuning (Åström and Hägglund)
+                                    <p>Introduced the idea of using relay feedback to determine system characteristics and compute PID parameters.
+                                        <br>Limitation: Requires controlled excitation of the system and may not work well in noisy environments or for systems with significant delays.
+                                        <br>Reference: Åström, K. J., & Hägglund, T. (1984). Automatic tuning of simple regulators with specifications on phase and amplitude margins. Automatica, 20(5), 645–651.</p>
+                                </li>
+                                <li>Optimization-Based and Heuristic Approaches (e.g., Genetic Algorithms, Particle Swarm Optimization)
+                                    <p>These methods explore a broad space of PID parameters using bio-inspired algorithms.
+                                        <br>Limitation: Computationally intensive, may converge slowly, and can suffer from instability if not carefully constrained.
+                                </li>
+                            </ul>
+
+							<h2 id="soptd">Understanding the System: Second-Order Plant with Delay</h2>
+                            <p>
+                                $$\textit{Second order Plant transfer func. with delay can be represented as,}$$  
+                                $$P(s) = e^{-\theta_p s} \cdot \frac{K_m}{T^2 s^2 + 2 \zeta T s + 1}$$
+                                <p>
+                                    where:
+                                  </p>
+                                  <ul>
+                                    <li>\( \theta_p \): Dead time (delay)</li>
+                                    <li>\( K_m \): Plant gain</li>
+                                    <li>\( \zeta \): Damping ratio</li>
+                                    <li>\( T \): Time constant</li>
+                                  </ul>
+                            </p>
+
+							<h2 id="pid_basics">PID Controller Basics</h2>
+                            <p>
+                                A PID controller is a feedback control loop mechanism that combines three terms: 
+                                <strong>Proportional (P)</strong>, <strong>Integral (I)</strong>, and <strong>Derivative (D)</strong>. 
+                                These components work together to ensure the controlled system reaches and maintains the desired setpoint.
+                              </p>
+                              <span class="image fit"><img src="../images/pid_using_gd/pid_controller_system.png" alt="Plant with PID controller" style="max-width: 800px; height: auto; margin: 0 auto; display: block;" /></span>
+                              <p>
+                                The continuous-time control law for a PID controller is:
+                              </p>
+                              
+                              <p>
+                                $$ u(t) = K_p e(t) + K_i \int_{0}^{t} e(\tau)\,d\tau + K_d \frac{d}{dt}e(t) $$
+                              </p>
+                              
+                              <p>
+                                Where:
+                              </p>
+                              <ul>
+                                <li><strong>$u(t)$</strong> is the control signal</li>
+                                <li><strong>$e(t)$</strong> is the error signal: the difference between the setpoint and the measured process output</li>
+                                <li><strong>$K_p$</strong> is the proportional gain</li>
+                                <li><strong>$K_i$</strong> is the integral gain</li>
+                                <li><strong>$K_d$</strong> is the derivative gain</li>
+                              </ul>
+                              
+                              <p>
+                                Each term has a distinct effect on system behavior:
+                              </p>
+                              
+                              <ul>
+                                <li>
+                                  <strong>Proportional (P):</strong> Reacts to the current error. Increases responsiveness, but alone may not eliminate steady-state error.
+                                </li>
+                                <li>
+                                  <strong>Integral (I):</strong> Reacts to the accumulation of past error. Eliminates steady-state error but can introduce overshoot and slower response.
+                                </li>
+                                <li>
+                                  <strong>Derivative (D):</strong> Reacts to the rate of change of error. Helps anticipate the system's behavior, improving stability and damping.
+                                </li>
+                              </ul>
+                              
+                              <p>
+                                The PID controller in the Laplace domain is represented as:
+                              </p>
+                              
+                              <p>
+                                $$ C(s) = K_p + \frac{K_i}{s} + K_d s $$
+                              </p>
+                              
+                              <p>
+                                Or, in a unified form:
+                              </p>
+                              
+                              <p>
+                                $$ C(s) = K_p \left(1 + \frac{1}{T_i s} + T_d s \right) $$
+                              </p>
+                              
+                              <p>
+                                Where \( T_i = \frac{K_p}{K_i} \) is the integral time and \( T_d = \frac{K_d}{K_p} \) is the derivative time.
+                              </p>
+                              
+                              <p>
+                                Proper tuning of these gains is essential to achieve a balance between speed, accuracy, and stability of the system.
+                              </p>
+                            <h2 id="gd_basics">Gradient Descent Basics</h2>
+                            <p>
+                                Gradient Descent is an iterative optimization algorithm used to find the minimum of a function.
+                                It is widely used in machine learning and control systems to minimize a cost function.
+                              </p>
+                              
+                              <p>
+                                Suppose we have a cost function \( J(\theta) \) that we want to minimize, where \( \theta \) is a parameter 
+                                (or set of parameters). The update rule for gradient descent is:
+                              </p>
+                              
+                              <p>
+                                $$ \theta = \theta - \alpha \cdot \frac{dJ}{d\theta} $$
+                              </p>
+                              
+                              <p>
+                                Here:
+                              </p>
+                              <ul>
+                                <li>\( \theta \): parameter to be optimized (e.g., PID gain like \( K_p \), \( K_i \), \( K_d \))</li>
+                                <li>\( \alpha \): learning rate, a small positive value that controls the step size</li>
+                                <li>\( \frac{dJ}{d\theta} \): gradient of the cost function with respect to the parameter</li>
+                              </ul>
+                              
+                              <p>
+                                The gradient \( \frac{dJ}{d\theta} \) points in the direction of greatest increase of the function. 
+                                By subtracting this value, we move in the direction of steepest descent.
+                              </p>
+                              
+                              <p>
+                                In cases where the exact gradient is hard to compute analytically, we can approximate it numerically using:
+                              </p>
+                              
+                              <p>
+                                $$ \frac{dJ}{d\theta} \approx \frac{J(\theta + \delta) - J(\theta)}{\delta} $$
+                              </p>
+                              
+                              <p>
+                                where \( \delta \) is a small perturbation value.
+                              </p>
+                              
+                              <p>
+                                Repeating this process iteratively allows us to converge to the value of \( \theta \) that minimizes \( J \).
+                              </p>
+
+							<h2 id="formulation">Formulating the Optimization Problem</h2>
+                              <p>
+                                Let \( T_{\text{set}} \) be the <strong>settling time</strong> and \( M_p \) be the <strong>maximum overshoot</strong> 
+                                for the given closed-loop transfer function.
+                              </p>
+                              
+                              <p>
+                                We define a cost function \( J \) that captures the key performance goals of the control system:
+                              </p>
+                              
+                              <p>
+                                $$ J = T_{\text{set}} + M_p $$
+                              </p>
+                              
+                              <p>
+                                Our objective is to minimize this cost function by tuning the PID gains. Using the gradient descent method, 
+                                we iteratively update the gains based on the gradient of \( J \) with respect to each gain:
+                              </p>
+                              
+                              <p>
+                                $$ K_{p_{\text{gradient}}} = \frac{T_{\text{set}}(K_p + \delta, K_i, K_d) + M_p(K_p + \delta, K_i, K_d) - J}{\delta} $$
+                              </p>
+                              
+                              <p>
+                                $$ K_{i_{\text{gradient}}} = \frac{T_{\text{set}}(K_p, K_i + \delta, K_d) + M_p(K_p, K_i + \delta, K_d) - J}{\delta} $$
+                              </p>
+                              
+                              <p>
+                                $$ K_{d_{\text{gradient}}} = \frac{T_{\text{set}}(K_p, K_i, K_d + \delta) + M_p(K_p, K_i, K_d + \delta) - J}{\delta} $$
+                              </p>
+                              
+                              <p>
+                                Here, \( \delta = e^{-4} \) is a small constant used to approximate the derivative numerically.
+                              </p>
+                              
+                              <p>
+                                The PID gains are then updated as:
+                              </p>
+                              
+                              <p>
+                                $$ K_p = K_p - \alpha \cdot K_{p_{\text{gradient}}} $$
+                                $$ K_i = K_i - \alpha \cdot K_{i_{\text{gradient}}} $$
+                                $$ K_d = K_d - \alpha \cdot K_{d_{\text{gradient}}} $$
+                              </p>
+                              
+                              <p>
+                                Where \( \alpha = 0.0005 \) is the learning rate.
+                              </p>
+                              
+                              <p>
+                                This optimization process is repeated until the cost function \( J \) reaches a minimum. 
+                                The final PID gains are those that result in the lowest value of \( J \), 
+                                thereby minimizing both the settling time and overshoot.
+                              </p>
+							<h2 id="implementation">Implementation</h2>
+                            <p>
+                                The proposed algorithm was implemented using a <strong>MATLAB script</strong>. 
+                                The complete source code is available in a <a href="https://github.com/kalpgarg/pid_using_gradient_descent" target="_blank">GitHub repository</a>.
+                              </p>
+                              
+                              <p>
+                                The plant is modeled as a second-order system with a time delay, and includes a Zero Order Hold (ZOH) block modeled 
+                                using <strong>Padé approximation</strong>. The following parameters were used:
+                              </p>
+                              
+                              <pre><code>
+                              sample_time_normal = 0.6;
+                              zoh_pade_normal = tf([1], [sample_time_normal/2 1]);
+                              
+                              plant_K = 0.99;
+                              plant_zeta = 0.62;
+                              plant_ts = 0.05;
+                              plant_deadTime_normal = 0.45;
+                              
+                              plant_num = [plant_K];
+                              plant_deno = [plant_ts^2, 2*plant_zeta*plant_ts, 1];
+                              G1_orig = tf(plant_num, plant_deno, 'IODelay', plant_deadTime_normal);
+                              G = G1_orig * zoh_pade_normal;
+                              </code></pre>
+                              
+                              <p>
+                                The plant transfer function can be represented as:
+                              </p>
+                              
+                              <p>
+                                $$
+                                P(s) = e^{-\theta_p s} \cdot \frac{K_m}{T^2 s^2 + 2 \zeta T s + 1}
+                                $$
+                              </p>
+                              
+                              <p>
+                                where:
+                              </p>
+                              <ul>
+                                <li>\( \theta_p \): Dead time (delay)</li>
+                                <li>\( K_m \): Plant gain</li>
+                                <li>\( \zeta \): Damping ratio</li>
+                                <li>\( T \): Time constant</li>
+                              </ul>
+                              
+                              <p>
+                                The ZOH (Zero Order Hold) block is approximated using a first-order Padé approximation:
+                              </p>
+                              
+                              <p>
+                                $$
+                                \text{ZOH}(s) \approx \frac{1}{\frac{T_s}{2} s + 1}
+                                $$
+                              
+                                where \( T_s = 0.6 \) seconds.
+                              </p>
+                              
+                              <p>
+                                The overall transfer function is formed by multiplying the original plant model with the Padé approximation of ZOH:
+                              </p>
+                              
+                              <p>
+                                $$
+                                G(s) = G_{\text{orig}}(s) \cdot \text{ZOH}_{\text{pade}}(s)
+                                $$
+                              
+                              </p>
+                              
+                              <h4>Convergence of Cost Function</h4>
+                              
+                              <p>
+                                During the optimization, the cost function \( J = T_{\text{set}} + M_p \) was evaluated iteratively and 
+                                its convergence was monitored. The figure below shows the decrease in 
+                                \( J \) over iterations, indicating that the PID gains are moving toward an optimal set.
+                                <br> <br>
+                                <span class="image fit"><img src="../images/pid_using_gd/cost_func_curve.png" alt="Cose function curve" style="max-width: 800px; height: auto; margin: 0 auto; display: block;" /></span>
+                              </p>
+
+							<h2 id="results">Results and Performance Comparison</h2>
+                            <p>We evaluate the performance of the PID controller tuned using the traditional <strong>Ziegler-Nichols (ZN)</strong> method and the proposed <strong>Gradient Descent (GD)</strong>-based optimization technique. The comparison is based on two key metrics:</p>
+
+                            <ul>
+                              <li><strong>Settling Time</strong> \( T_{\text{set}} \): Time taken for the response to remain within a specified tolerance band.</li>
+                              <li><strong>Overshoot</strong> \( M_p \): The maximum peak value of the response curve measured from the desired response level.</li>
+                            </ul>
+                            
+                            <h3>Response Plots</h3>
+                            
+                            <div style="display: flex; gap: 20px;">
+                              <div style="text-align: center;">
+                                <img src="../images/pid_using_gd/zn_method.png" alt="ZN Method Response" width="400">
+                                <p><em>Figure 1: Step response using Ziegler-Nichols tuning</em></p>
+                              </div>
+                              <div style="text-align: center;">
+                                <img src="../images/pid_using_gd/gd_method.png" alt="Gradient Descent Response" width="400">
+                                <p><em>Figure 2: Step response using Gradient Descent tuning</em></p>
+                              </div>
+                            </div>
+                            
+                            <h3>Performance Metrics</h3>
+                            
+                            <table border="1" cellpadding="8" cellspacing="0" style="border-collapse: collapse; text-align: center;">
+                              <thead>
+                                <tr style="background-color: #201c35; text-align: center;">
+                                  <th>Method</th>
+                                  <th>\( K_p \)</th>
+                                  <th>\( K_i \)</th>
+                                  <th>\( K_d \)</th>
+                                  <th>Settling Time \( T_{\text{set}} \) (s)</th>
+                                  <th>Overshoot \( M_p \) (%)</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                <tr>
+                                  <td>Ziegler-Nichols</td>
+                                  <td>\( 1.26 \)</td>
+                                  <td>\( 1.7849 \)</td>
+                                  <td>\( 0.2224 \)</td>
+                                  <td>\( 7.58 \)</td>
+                                  <td>\( 48.6\% \)</td>
+                                </tr>
+                                <tr>
+                                  <td>Gradient Descent</td>
+                                  <td>\( 0.682 \)</td>
+                                  <td>\( 1.378 \)</td>
+                                  <td>\( 0.084 \)</td>
+                                  <td>\( 1.25 \)</td>
+                                  <td>\( 0.0386\% \)</td>
+                                </tr>
+                              </tbody>
+                            </table>
+							<h2 id="conclusion">Conclusion</h2>
+                                <p>
+                                In this study, we explored a gradient descent-based optimization approach for tuning PID controller gains applied to a second-order system with delay. Unlike traditional methods, such as the Ziegler-Nichols technique, which often rely on empirical rules and may result in higher overshoot or longer settling time, the proposed method offers a more systematic and adaptable way to minimize a defined cost function.
+                                </p>
+                                
+                                <p>
+                                By formulating the cost function as the sum of settling time (\( T_{\text{set}} \)) and overshoot (\( M_p \)), we enabled the PID controller to optimize system response characteristics directly. The gradient descent algorithm iteratively adjusted the controller gains to minimize this cost, leading to improved system performance.
+                                </p>
+                                
+                                <p>
+                                The MATLAB-based implementation demonstrated successful convergence of the cost function, with final gains yielding significantly lower overshoot and faster settling time compared to the Ziegler-Nichols method. The statistical results and response plots validated the effectiveness of this approach.
+                                </p>
+                                
+                                <p>
+                                Overall, this work showcases the potential of combining classical control theory with modern optimization techniques for robust and efficient controller design. Future extensions could involve multi-objective cost functions or applying the method to higher-order and nonlinear systems.
+                                </p>
+                            <h2 id="references">References</h2>
+                            <ol>
+                                <li>
+                                  K. J. Åström and T. Hägglund, 
+                                  <i>"PID Controllers: Theory, Design, and Tuning,"</i> 
+                                  Instrument Society of America, 2nd Edition, 1995.
+                                </li>
+                                <li>
+                                  G. F. Franklin, J. D. Powell, and A. Emami-Naeini,
+                                  <i>"Feedback Control of Dynamic Systems,"</i>
+                                  Pearson, 7th Edition, 2015.
+                                </li>
+                                <li>
+                                  S. Boyd and L. Vandenberghe, 
+                                  <i>"Convex Optimization,"</i> 
+                                  Cambridge University Press, 2004. (Chapters on gradient-based methods)
+                                </li>
+                                <li>
+                                  MATLAB Documentation, 
+                                  <a href="https://www.mathworks.com/help/control/" target="_blank">
+                                    Control System Toolbox Documentation
+                                  </a>, The MathWorks, Inc.
+                                </li>
+                                <li>
+                                  Ziegler, J. G., and Nichols, N. B., 
+                                  <i>"Optimum Settings for Automatic Controllers,"</i> 
+                                  Transactions of the ASME, vol. 64, pp. 759–768, 1942.
+                                </li>
+                                <li>
+                                  GitHub Repository (for code implementation): 
+                                  <a href="https://github.com/kalpgarg/pid_using_gradient_descent" target="_blank">
+                                    https://github.com/kalpgarg/pid_using_gradient_descent
+                                  </a>
+                                </li>
+                              </ol>
                         </div>
 					</section>
 
