@@ -1,0 +1,218 @@
+<!DOCTYPE HTML>
+<html>
+	<head>
+		<title>Motion detection tool for home CCTV camera</title>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+		<link rel="stylesheet" href="../assets/css/main.css" />
+		<noscript><link rel="stylesheet" href="../assets/css/noscript.css" /></noscript>
+        <link rel="icon" href="/images/Yin_and_Yang_symbol.png" type="image/x-icon"/>
+        <script>
+            MathJax = {
+              tex: { inlineMath: [['$', '$'], ['\\(', '\\)']] },
+              svg: { fontCache: 'global' }
+            };
+          </script>
+          <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js" async></script>
+	</head>
+	<body class="is-preload">
+
+		<!-- Header -->
+			<header id="header">
+				<nav>
+					<ul>
+						<li><a href="../index.html">Home</a></li>
+						<li><a href="../index.html#one">Blogs</a></li>
+						<li><a href="../index.html#two">Projects</a></li>
+					</ul>
+				</nav>
+			</header>
+
+		<!-- Wrapper -->
+			<div id="wrapper">
+
+				<!-- Main -->
+					<section id="main" class="wrapper">
+						<div class="inner">
+							<h1 class="major">A Smart Eye on Your Home: The DIY Security Camera Project</h1>
+                            <span style="font-size: 0.9em; color: #aaa;">June 26, 2025</span>
+                            <h2>Table of Contents</h2>
+                            <ul>
+                            <li><a href="#introduction">Introduction</a></li>
+                            <li><a href="#how_it_works">How It Works: A Detailed Look</a></li>
+                            <li><a href="#core_algo">Core algorithm</a></li>
+                            <li><a href="#getting_started">Setting up and Installation</a></li>
+                            <li><a href="#results">Results</a></li>
+                            <li><a href="#references">References</a></li>
+                            </ul>
+                            <h2 id="introduction">Introduction</h2>
+                            <p>This project provides a powerful, Python-based local surveillance solution. It's designed for anyone interested in enhancing their home security with a system that is both private and highly customizable. Unlike many commercial options, this solution keeps all your data on your local server. The system connects to your existing DVR camera feeds, intelligently detects motion, records the event, and sends an instant alert with the video clip directly to your Telegram.</p>
+
+                            <h2 id="how_it_works">How It Works: A Detailed Look</h2>
+                            <p>The system is a sophisticated suite of scripts working in concert to provide 24/7 monitoring. Here's a breakdown of each component's role:</p>
+                            <ul>
+                                <li>
+                                    <h4>Core Engine: `fetch_save_stream.py`</h4>
+                                    <p>This is the heart of the operation. It connects to the RTSP feed of a CP-PLUS DVR. It continuously fetches the video stream, performs real-time motion analysis, and upon detecting significant movement, it saves a recording and triggers an alert.</p>
+                                </li>
+                                <li>
+                                    <h4>Alert System: `telegram_bot.py`</h4>
+                                    <p>This script acts as the bridge between your security system and you. When a recording is saved, this module is called to send the video file directly to a pre-configured Telegram chat. It handles the interaction with the Telegram Bot API to post the video and a caption.</p>
+                                </li>
+                                <li>
+                                    <h4>Storage Guardian: `file_manager.py`</h4>
+                                    <p>To prevent the system from running out of disk space, this utility script acts as a janitor. It periodically scans the recordings directory and automatically deletes video files and their corresponding database entries if they are older than three days. It also cleans up old log files to maintain system health.</p>
+                                </li>
+                                 <li>
+                                    <h4>The Watchdog: `script_mon.py`</h4>
+                                    <p>This script ensures the system's reliability. It runs in the background and continuously checks if the main processes (`fetch_save_stream.py`, `file_manager.py`) are running. If it finds that a script has stopped, it automatically restarts it, guaranteeing uninterrupted surveillance.</p>
+                                </li>
+                                <li>
+                                    <h4>Configuration & Utilities</h4>
+                                    <p>A set of helper scripts make the system robust and easy to manage:</p>
+                                    <ul>
+                                        <li><code>common_utils.py</code>: A central library for shared functions like parsing camera credentials, fetching API keys, getting motion detection parameters for day/night, and retrieving the polygon coordinates for cropping.</li>
+                                        <li><code>crop_image.py</code>: An interactive tool that allows you to draw a polygon or rectangle over a sample image from your camera feed. It then prints the exact coordinates of this area of interest, which you can add to your configuration to ensure motion is only detected in specific zones (e.g., a door, a window).</li>
+                                        <li><code>py_logging.py</code>: A custom logging module that formats and manages log output, making it easier to debug issues.</li>
+                                    </ul>
+                                </li>
+                            </ul>
+
+                            <h2 id="core_algo"> Core Algorithm Deep Dive: `fetch_save_stream.py`</h2>
+                            <p>The motion detection in <code>fetch_save_stream.py</code> is not just a simple check; it's a multi-step algorithm designed to be both sensitive and resistant to false positives. Here is a step-by-step breakdown:</p>
+                            <ol>
+                                <li>
+                                    <h4>Initialization & Configuration Loading</h4>
+                                    <p>When the script starts, it reads its configuration using functions from <code>common_utils.py</code>. This includes:</p>
+                                    <ul>
+                                        <li>Camera credentials and stream URL.</li>
+                                        <li>The precise vertices of the polygon that defines the motion detection zone (Region of Interest).</li>
+                                        <li>Separate sensitivity thresholds for day and night, as lighting conditions change drastically.</li>
+                                    </ul>
+                                </li>
+                                <li>
+                                    <h4>Defining the Region of Interest (ROI)</h4>
+                                    <p>To focus only on important areas, a mask is created. The script uses <code>cv2.fillPoly()</code> to draw the user-defined polygon (whose vertices were fetched in Step 1) onto a black mask. This mask is then used with <code>cv2.bitwise_and()</code> to ensure that subsequent processing steps only consider the pixels within this specific region, ignoring irrelevant movement elsewhere in the frame.</p>
+                                </li>
+                                <li>
+                                    <h4>Frame Pre-processing</h4>
+                                    <p>The very first frame from the stream is captured and processed to become the initial "static" background reference, called <code>start_frame</code>. Every subsequent frame goes through the same pre-processing pipeline:</p>
+                                     <ul>
+                                        <li>The ROI mask from Step 2 is applied.</li>
+                                        <li>The frame is converted from color to grayscale using <code>cv2.cvtColor()</code>, as color information is not needed for motion detection and this simplifies the data.</li>
+                                        <li>A Gaussian blur (e.g., <code>cv2.GaussianBlur(frame, (21, 21), 0)</code>) is applied to smoothen the image and reduce noise, which helps prevent false alarms from minor pixel fluctuations.</li>
+                                    </ul>
+                                </li>
+                                <li>
+                                    <h4>Calculating the Difference</h4>
+                                    <p>The processed current frame is compared to the processed previous frame (<code>start_frame</code>) using <code>cv2.absdiff()</code>. This function calculates the absolute difference between each pixel, resulting in an image that highlights where changes have occurred.</p>
+                                </li>
+                                 <li>
+                                    <h4>Thresholding and Motion Score</h4>
+                                    <p>The difference image is then thresholded using <code>cv2.threshold()</code>. This converts the grayscale difference image into a binary image (black and white), where white pixels represent significant change. The script then calculates the total sum of all white pixels (<code>threshold.sum()</code>). This sum is a numerical score representing the amount of motion in the frame.</p>
+                                </li>
+                                <li>
+                                    <h4>Smart Motion Detection Logic</h4>
+                                    <p>A single frame of motion is often not enough to trigger an alarm. The script uses a counter, <code>motion_alarm_cntr</code>, to track persistent motion.</p>
+                                    <ul>
+                                        <li>If the motion score from Step 5 exceeds the configured threshold (which changes for day/night), the <code>motion_alarm_cntr</code> is incremented.</li>
+                                        <li>If there's no significant motion, the counter is decremented.</li>
+                                        <li>An alarm is triggered only when <code>motion_alarm_cntr</code> surpasses a contour threshold (<code>cntr_threshold</code>), ensuring the motion is sustained and not just a brief flicker.</li>
+                                    </ul>
+                                </li>
+                                <li>
+                                    <h4>Recording and Alerting</h4>
+                                    <p>Once motion is confirmed, the script immediately begins recording. It uses <code>cv2.VideoWriter</code> to save the live, unprocessed frames into an .mp4 file. The recording continues for a predefined period (e.g., 15 seconds) after the initial trigger. When the recording is complete, the script calls the `telegram_bot.sh` shell script using <code>subprocess.Popen</code>, passing the path to the new video file and a descriptive caption as arguments. This shell script then invokes `telegram_bot.py` to send the alert.</p>
+                                </li>
+                            </ol>
+
+                            <h2 id="getting_started">Setting up and Installation</h2>
+                            <p>Setting up your own local surveillance system is straightforward.</p>
+                            <ol>
+                                <li>
+                                    <h4>Clone the repository and install dependencies</h4>
+                                    <div class="code-block">
+                                        <pre><code>git clone https://github.com/kalpgarg/home_cam_security.git
+cd home_cam_security
+pip install -r requirements.txt</code></pre>
+                                    </div>
+                                     <p class="citation"></p>
+                                </li>
+                                <li>
+                                    <h4>Configure your environment</h4>
+                                    <p>You need to set up your DVR stream URLs, Telegram Bot API key, and channel ID. These are stored securely in a file like <code>custom_cam_info.json</code>. Use the <code>crop_image.py</code> tool to define your motion detection zones.</p>
+                                </li>
+                                 <li>
+                                    <h4>Run the main server</h4>
+                                    <p>Launch the monitoring script, which will in turn start all other necessary components.</p>
+                                    <div class="code-block">
+                                        <pre><code>python script_mon.py</code></pre>
+                                    </div>
+                                     <p class="citation"></p>
+                                </li>
+                            </ol>
+
+                            <h2 id="results">Results</h2>
+
+                            <h3>Sample Captured Video</h3>
+                            <p>This is a clip captured automatically when motion was detected by one of the CCTV cameras.</p>
+                            <video width="640" height="360" controls>
+                              <source src="../images/home_cam_bot/cam_sample_video.mp4" type="video/mp4">
+                              Your browser does not support the video tag.
+                            </video>
+                          
+                            <h3>Telegram Alert Screenshot</h3>
+                            <p>As soon as motion is detected, this recording is sent to your configured Telegram channel or group.</p>
+                            <img src="../images/home_cam_bot/tgram_screenshot.jpeg" alt="Telegram Notification" style="max-width:100%; height: 500px; border: 1px solid #ccc;">
+                          
+                            <p>
+                              These real-time alerts allow you to monitor your home or premises even when you’re away—no need to check manually.
+                            </p>
+
+                            <h2 id="references">References & Further Reading</h2>
+                            <ul>
+                                <li>
+                                    <h4>Project GitHub Repository</h4>
+                                    <p>Explore the source code, fork the repository, and contribute to the project. Contributions are welcome!</p>
+                                    <p><a href="https://github.com/kalpgarg/home_cam_security.git" target="_blank">https://github.com/kalpgarg/home_cam_security.git</a></p>
+                                </li>
+                                <li>
+                                    <h4>Key OpenCV Modules Used</h4>
+                                    <p>This project relies heavily on the OpenCV library for video processing. Understanding these core functions can help you customize the project further.</p>
+                                    <ul>
+                                        <li><a href="https://docs.opencv.org/4.x/d8/dfe/classcv_1_1VideoCapture.html" target="_blank"><code>cv2.VideoCapture</code></a>: Used to connect to and read frames from the camera's RTSP stream.</li>
+                                        <li><a href="https://docs.opencv.org/4.x/dd/d9e/classcv_1_1VideoWriter.html" target="_blank"><code>cv2.VideoWriter</code></a>: Used to save the detected motion events as .mp4 video files.</li>
+                                        <li><a href="https://docs.opencv.org/4.x/d8/d01/group__imgproc__color__conversions.html#ga397ae87e1288a81d2363b61574eb8cab" target="_blank"><code>cv2.cvtColor</code></a>: To convert color video frames into grayscale for motion analysis.</li>
+                                        <li><a href="https://docs.opencv.org/4.x/d4/d86/group__imgproc__filter.html#gaabe8c836e97159a9193fb0b11ac52cf1" target="_blank"><code>cv2.GaussianBlur</code></a>: Applied to frames to reduce image noise and prevent minor fluctuations from being detected as motion.</li>
+                                        <li><a href="https://docs.opencv.org/4.x/d2/de8/group__core__array.html#ga6dcf7b861e6d988d4c39e24029372c3d" target="_blank"><code>cv2.absdiff</code></a>: To compute the pixel-by-pixel difference between two frames, forming the basis of motion detection.</li>
+                                        <li><a href="https://docs.opencv.org/4.x/d7/d1b/group__imgproc__misc.html#gae8a4a146d1ca78c626a53577199e9c57" target="_blank"><code>cv2.threshold</code></a>: To convert the difference image into a binary image, clearly separating areas of significant change (motion) from the static background.</li>
+                                        <li><a href="https://docs.opencv.org/4.x/d6/d6e/group__imgproc__draw.html#gaf30888828337aa4c6b56782b5dfc4c47" target="_blank"><code>cv2.fillPoly</code></a>: To create a specific region-of-interest mask, ensuring motion detection is confined to user-defined areas like doorways or windows.</li>
+                                         <li><a href="https://docs.opencv.org/4.x/d2/de8/group__core__array.html#ga60b4d04b251ba5eb1392c34425497e14" target="_blank"><code>cv2.bitwise_and</code></a>: Used to apply the region-of-interest mask to the video frames, effectively ignoring all motion outside the defined polygon.</li>
+                                    </ul>
+                                </li>
+
+                        </div>
+					</section>
+
+			</div>
+
+		<!-- Footer -->
+			<footer id="footer" class="wrapper alt">
+				<div class="inner">
+					<ul class="menu">
+						<li>&copy; 2025. All rights reserved.</li>
+					</ul>
+				</div>
+			</footer>
+
+		<!-- Scripts -->
+			<script src="../assets/js/jquery.min.js"></script>
+			<script src="../assets/js/jquery.scrollex.min.js"></script>
+			<script src="../assets/js/jquery.scrolly.min.js"></script>
+			<script src="../assets/js/browser.min.js"></script>
+			<script src="../assets/js/breakpoints.min.js"></script>
+			<script src="../assets/js/util.js"></script>
+			<script src="../assets/js/main.js"></script>
+
+	</body>
+</html>
