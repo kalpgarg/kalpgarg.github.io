@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Tic Tac Toe</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+  <link rel="stylesheet" href="../assets/css/main.css" />
+  <noscript><link rel="stylesheet" href="../assets/css/noscript.css" /></noscript>
+  <link rel="icon" href="/images/Yin_and_Yang_symbol.png" type="image/x-icon"/>
+  <style>
+    .controls {
+      margin-bottom: 1.5rem;
+    }
+
+    .controls label {
+      margin-right: 20px;
+      font-weight: 600;
+    }
+
+    .board {
+      display: grid;
+      grid-template-columns: repeat(3, 100px);
+      gap: 5px;
+      justify-content: center;
+      margin-top: 20px;
+    }
+
+    .cell {
+      width: 100px;
+      height: 100px;
+      background-color: #f0f0f0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2rem;
+      border: 2px solid #ccc;
+      cursor: pointer;
+      color: black;
+    }
+
+    .cell.taken {
+      pointer-events: none;
+    }
+
+    #status, #turn {
+      margin-top: 10px;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body class="is-preload">
+
+  <!-- Header -->
+  <header id="header">
+    <!-- <a href="../index.html" class="title">Web apps</a> -->
+    <nav>
+      <ul>
+        <li><a href="../index.html">Home</a></li>
+        <li><a href="../index.html#one">Blogs</a></li>
+        <li><a href="../index.html#two">Projects</a></li>
+      </ul>
+    </nav>
+  </header>
+
+  <!-- Wrapper -->
+  <div id="wrapper">
+    <!-- Main -->
+    <section id="main" class="wrapper">
+      <div class="inner">
+        <h1 class="major">Tic Tac Toe</h1>
+        <!-- <span style="font-size: 0.9em; color: #aaa;">Sep 5, 2025</span> -->
+        <div class="controls">
+          <label for="mode">Select Mode:</label>
+          <select id="mode" onchange="resetGame()">
+            <option value="pvp" selected>Player vs Player</option>
+            <option value="bot">Player vs Bot</option>
+            <option value="rl1">Player vs RL1</option>
+            <option value="rl2">Player vs RL2</option>
+          </select>
+          <button onclick="resetGame()">Reset</button>
+        </div>
+
+        <h2 id="turn"></h2>
+        <h2 id="status"></h2>
+        <div class="board" id="board"></div>
+      </div>
+    </section>
+  </div>
+
+  <!-- Footer -->
+  <footer id="footer" class="wrapper alt">
+    <div class="inner">
+      <ul class="menu">
+        <li>&copy; 2025 All rights reserved.</li>
+      </ul>
+    </div>
+  </footer>
+
+  <!-- Game Logic -->
+  <script>
+    const boardEl = document.getElementById("board");
+    const statusEl = document.getElementById("status");
+    const turnEl = document.getElementById("turn");
+    const modeEl = document.getElementById("mode");
+
+    let board = Array(9).fill(null);
+    let currentPlayer = "X";
+    let gameOver = false;
+
+    function resetGame() {
+      board = Array(9).fill(null);
+      currentPlayer = "X";
+      gameOver = false;
+      statusEl.textContent = "";
+      updateTurnDisplay();
+      render();
+    }
+
+    function updateTurnDisplay() {
+      if (!gameOver) {
+        turnEl.textContent = `Next turn: ${currentPlayer}`;
+      } else {
+        turnEl.textContent = "";
+      }
+    }
+
+    function render() {
+      boardEl.innerHTML = "";
+      board.forEach((value, index) => {
+        const cell = document.createElement("div");
+        cell.className = "cell";
+        if (value) {
+          cell.textContent = value;
+          cell.classList.add("taken");
+        } else if (!gameOver) {
+          cell.onclick = () => handleMove(index);
+        }
+        boardEl.appendChild(cell);
+      });
+      updateTurnDisplay();
+    }
+
+    function handleMove(index) {
+      if (board[index] || gameOver) return;
+      board[index] = currentPlayer;
+      render(); // <-- fix: render immediately after move so last symbol shows
+
+      if (checkWin(currentPlayer)) {
+        statusEl.textContent = `${currentPlayer} wins!`;
+        gameOver = true;
+        updateTurnDisplay();
+      } else if (board.every(cell => cell)) {
+        statusEl.textContent = "It's a draw!";
+        gameOver = true;
+        updateTurnDisplay();
+      } else {
+        currentPlayer = currentPlayer === "X" ? "O" : "X";
+        updateTurnDisplay();
+        if (getMode() === "bot" && currentPlayer === "O") {
+          setTimeout(botMove, 300);
+        } else if (getMode().startsWith("rl") && currentPlayer === "O") {
+          statusEl.textContent = "RL agent not implemented yet.";
+        }
+      }
+    }
+
+    // Unbeatable bot using Minimax
+    function botMove() {
+      const bestMove = minimax(board, "O").index;
+      if (bestMove !== undefined) {
+        handleMove(bestMove);
+      }
+    }
+
+    function minimax(newBoard, player) {
+      const availSpots = newBoard.map((v, i) => (v === null ? i : null)).filter(v => v !== null);
+
+      if (checkWin("X", newBoard)) return { score: -10 };
+      if (checkWin("O", newBoard)) return { score: 10 };
+      if (availSpots.length === 0) return { score: 0 };
+
+      const moves = [];
+      for (let i = 0; i < availSpots.length; i++) {
+        const move = {};
+        move.index = availSpots[i];
+        newBoard[availSpots[i]] = player;
+
+        if (player === "O") {
+          const result = minimax(newBoard, "X");
+          move.score = result.score;
+        } else {
+          const result = minimax(newBoard, "O");
+          move.score = result.score;
+        }
+
+        newBoard[availSpots[i]] = null;
+        moves.push(move);
+      }
+
+      let bestMove;
+      if (player === "O") {
+        let bestScore = -Infinity;
+        for (let i = 0; i < moves.length; i++) {
+          if (moves[i].score > bestScore) {
+            bestScore = moves[i].score;
+            bestMove = i;
+          }
+        }
+      } else {
+        let bestScore = Infinity;
+        for (let i = 0; i < moves.length; i++) {
+          if (moves[i].score < bestScore) {
+            bestScore = moves[i].score;
+            bestMove = i;
+          }
+        }
+      }
+      return moves[bestMove];
+    }
+
+    function checkWin(player, state = board) {
+      const wins = [
+        [0,1,2], [3,4,5], [6,7,8],
+        [0,3,6], [1,4,7], [2,5,8],
+        [0,4,8], [2,4,6]
+      ];
+      return wins.some(line => line.every(i => state[i] === player));
+    }
+
+    function getMode() {
+      return modeEl.value;
+    }
+
+    render();
+  </script>
+</body>
+</html>
