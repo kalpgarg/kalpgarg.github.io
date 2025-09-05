@@ -41,6 +41,12 @@
     .cell.taken {
       pointer-events: none;
     }
+    .status {
+    text-align: center;
+    font-size: 1.8rem;
+    font-weight: bold;
+    margin: 20px 0;
+  } 
 
     #status, #turn {
       margin-top: 10px;
@@ -81,7 +87,7 @@
         </div>
 
         <h2 id="turn"></h2>
-        <h2 id="status"></h2>
+        <h2 id="status" class="status"></h2>
         <div class="board" id="board"></div>
       </div>
     </section>
@@ -112,17 +118,17 @@
       currentPlayer = "X";
       gameOver = false;
       statusEl.textContent = "";
-      updateTurnDisplay();
+      updateStatus();
       render();
     }
 
-    function updateTurnDisplay() {
-      if (!gameOver) {
-        turnEl.textContent = `Next turn: ${currentPlayer}`;
-      } else {
-        turnEl.textContent = "";
-      }
-    }
+    // function updateTurnDisplay() {
+    //   if (!gameOver) {
+    //     turnEl.textContent = `Next turn: ${currentPlayer}`;
+    //   } else {
+    //     turnEl.textContent = "";
+    //   }
+    // }
 
     function render() {
       boardEl.innerHTML = "";
@@ -137,32 +143,39 @@
         }
         boardEl.appendChild(cell);
       });
-      updateTurnDisplay();
+      updateStatus();
     }
 
-    function handleMove(index) {
-      if (board[index] || gameOver) return;
-      board[index] = currentPlayer;
-      render(); // <-- fix: render immediately after move so last symbol shows
+    function updateStatus() {
+    if (gameOver) {
+      // Keep win/draw message
+      return;
+    } else {
+      statusEl.textContent = `Next turn: ${currentPlayer}`;
+    }
+  }
 
-      if (checkWin(currentPlayer)) {
-        statusEl.textContent = `${currentPlayer} wins!`;
-        gameOver = true;
-        updateTurnDisplay();
-      } else if (board.every(cell => cell)) {
-        statusEl.textContent = "It's a draw!";
-        gameOver = true;
-        updateTurnDisplay();
-      } else {
-        currentPlayer = currentPlayer === "X" ? "O" : "X";
-        updateTurnDisplay();
-        if (getMode() === "bot" && currentPlayer === "O") {
-          setTimeout(botMove, 300);
-        } else if (getMode().startsWith("rl") && currentPlayer === "O") {
-          statusEl.textContent = "RL agent not implemented yet.";
-        }
+  function handleMove(index) {
+    if (board[index] || gameOver) return;
+    board[index] = currentPlayer;
+    render();
+
+    if (checkWin(currentPlayer)) {
+      statusEl.textContent = `${currentPlayer} wins!`;
+      gameOver = true;
+    } else if (board.every(cell => cell)) {
+      statusEl.textContent = "It's a draw!";
+      gameOver = true;
+    } else {
+      currentPlayer = currentPlayer === "X" ? "O" : "X";
+      updateStatus();
+      if (getMode() === "bot" && currentPlayer === "O") {
+        setTimeout(botMove, 300);
+      } else if (getMode().startsWith("rl") && currentPlayer === "O") {
+        statusEl.textContent = "RL agent not implemented yet.";
       }
     }
+  }
 
     // Unbeatable bot using Minimax
     function botMove() {
