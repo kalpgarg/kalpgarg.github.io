@@ -8,15 +8,10 @@
   <noscript><link rel="stylesheet" href="../assets/css/noscript.css" /></noscript>
   <link rel="icon" href="/images/Yin_and_Yang_symbol.png" type="image/x-icon"/>
   <style>
-    .controls {
-      margin-bottom: 1.5rem;
-    }
-
-    .controls label {
-      margin-right: 20px;
-      font-weight: 600;
-    }
-
+    /* --- Existing Styles --- */
+    .controls { margin-bottom: 1.5rem; }
+    .controls label { margin-right: 20px; font-weight: 600; }
+    
     .board {
       display: grid;
       grid-template-columns: repeat(3, 100px);
@@ -36,29 +31,92 @@
       border: 2px solid #ccc;
       cursor: pointer;
       color: black;
+      transition: all 0.3s ease; /* Smooth transition for effects */
     }
 
-    .cell.taken {
-      pointer-events: none;
-    }
+    .cell.taken { pointer-events: none; }
+    
     .status {
-    text-align: center;
-    font-size: 1.8rem;
-    font-weight: bold;
-    margin: 20px 0;
-  } 
-
-    #status, #turn {
-      margin-top: 10px;
+      text-align: center;
+      font-size: 1.8rem;
       font-weight: bold;
+      margin: 20px 0;
+    } 
+
+    #status, #turn { margin-top: 10px; font-weight: bold; }
+
+    /* --- NEW Styles for Infinite Mode --- */
+    
+    /* Toggle Switch Styles */
+    .switch-container {
+      display: flex;
+      align-items: center;
+      margin-bottom: 15px;
+    }
+    
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 50px;
+      height: 24px;
+      margin: 0 10px;
+    }
+
+    .switch input { opacity: 0; width: 0; height: 0; }
+
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background-color: #ccc;
+      transition: .4s;
+      border-radius: 34px;
+    }
+
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 16px;
+      width: 16px;
+      left: 4px;
+      bottom: 4px;
+      background-color: white;
+      transition: .4s;
+      border-radius: 50%;
+    }
+
+    input:checked + .slider { background-color: #2196F3; }
+    input:checked + .slider:before { transform: translateX(26px); }
+
+    /* Infinite Mode Rules Box */
+    .rules-box {
+      background: #e8f4fd;
+      border-left: 5px solid #2196F3;
+      padding: 10px;
+      margin-bottom: 20px;
+      display: none; /* Hidden by default */
+      color: #333;
+      font-size: 0.9rem;
+    }
+
+    /* Visual cue for the piece about to be removed */
+    .cell.about-to-die {
+      opacity: 0.5;
+      border-color: #ff4444;
+      color: #ff4444;
+      animation: pulse 1.5s infinite;
+    }
+
+    @keyframes pulse {
+      0% { transform: scale(1); }
+      50% { transform: scale(0.95); }
+      100% { transform: scale(1); }
     }
   </style>
 </head>
 <body class="is-preload">
 
-  <!-- Header -->
   <header id="header">
-    <!-- <a href="../index.html" class="title">Web apps</a> -->
     <nav>
       <ul>
         <li><a href="../index.html">Home</a></li>
@@ -68,22 +126,36 @@
     </nav>
   </header>
 
-  <!-- Wrapper -->
   <div id="wrapper">
-    <!-- Main -->
     <section id="main" class="wrapper">
       <div class="inner">
         <h1 class="major">Tic Tac Toe</h1>
-        <!-- <span style="font-size: 0.9em; color: #aaa;">Sep 5, 2025</span> -->
+        
+        <div class="switch-container">
+          <span>Standard</span>
+          <label class="switch">
+            <input type="checkbox" id="infiniteToggle" onchange="toggleInfiniteMode()">
+            <span class="slider"></span>
+          </label>
+          <span>Infinite (3-Piece Limit)</span>
+        </div>
+
+        <div id="infiniteRules" class="rules-box">
+          <italics>Infinite Mode Rules:</italics><br>
+          1. Each player can only have <italics>3 pieces</italics> on the board.<br>
+          2. When you place your 4th piece, your <italics>oldest piece disappears</italics>.<br>
+          3. The faded piece indicates which one will vanish next!
+        </div>
+
         <div class="controls">
-          <label for="mode">Select Mode:</label>
+          <label for="mode">Opponent:</label>
           <select id="mode" onchange="resetGame()">
             <option value="pvp" selected>Player vs Player</option>
-            <option value="bot">Player vs Bot</option>
+            <option value="bot">Player vs Bot (Standard Only)</option>
             <option value="rl1">Player vs RL1</option>
             <option value="rl2">Player vs RL2</option>
           </select>
-          <button onclick="resetGame()">Reset</button>
+          <button onclick="resetGame()">Reset Game</button>
         </div>
 
         <h2 id="turn"></h2>
@@ -93,7 +165,6 @@
     </section>
   </div>
 
-  <!-- Footer -->
   <footer id="footer" class="wrapper alt">
     <div class="inner">
       <ul class="menu">
@@ -102,83 +173,130 @@
     </div>
   </footer>
 
-  <!-- Game Logic -->
   <script>
     const boardEl = document.getElementById("board");
     const statusEl = document.getElementById("status");
-    const turnEl = document.getElementById("turn");
     const modeEl = document.getElementById("mode");
+    const infiniteToggle = document.getElementById("infiniteToggle");
+    const rulesBox = document.getElementById("infiniteRules");
 
     let board = Array(9).fill(null);
     let currentPlayer = "X";
     let gameOver = false;
+    
+    // Infinite Mode State
+    let isInfinite = false;
+    let xMoves = []; // Stores indices of X moves [oldest, ..., newest]
+    let oMoves = []; // Stores indices of O moves
+
+    function toggleInfiniteMode() {
+      isInfinite = infiniteToggle.checked;
+      rulesBox.style.display = isInfinite ? "block" : "none";
+      
+      // Disable Bot in infinite mode (simplification)
+      if (isInfinite) {
+        if (modeEl.value === 'bot') modeEl.value = 'pvp';
+        modeEl.options[1].disabled = true; // Disable Bot option
+      } else {
+        modeEl.options[1].disabled = false; // Enable Bot option
+      }
+      
+      resetGame();
+    }
 
     function resetGame() {
       board = Array(9).fill(null);
+      xMoves = [];
+      oMoves = [];
       currentPlayer = "X";
       gameOver = false;
-      statusEl.textContent = "";
-      updateStatus();
+      statusEl.textContent = `Next turn: ${currentPlayer}`;
       render();
     }
 
-    // function updateTurnDisplay() {
-    //   if (!gameOver) {
-    //     turnEl.textContent = `Next turn: ${currentPlayer}`;
-    //   } else {
-    //     turnEl.textContent = "";
-    //   }
-    // }
-
     function render() {
       boardEl.innerHTML = "";
+      
+      // Determine which piece is fading (the oldest one of the current player)
+      let dyingIndex = -1;
+      if (isInfinite) {
+        const currentMoves = currentPlayer === "X" ? xMoves : oMoves;
+        if (currentMoves.length === 3) {
+          dyingIndex = currentMoves[0]; // The oldest move
+        }
+      }
+
       board.forEach((value, index) => {
         const cell = document.createElement("div");
         cell.className = "cell";
+        
         if (value) {
           cell.textContent = value;
           cell.classList.add("taken");
+          
+          // Add fading effect if this is the piece about to die
+          if (index === dyingIndex) {
+            cell.classList.add("about-to-die");
+          }
         } else if (!gameOver) {
           cell.onclick = () => handleMove(index);
         }
         boardEl.appendChild(cell);
       });
-      updateStatus();
     }
 
-    function updateStatus() {
-    if (gameOver) {
-      // Keep win/draw message
-      return;
-    } else {
-      statusEl.textContent = `Next turn: ${currentPlayer}`;
-    }
-  }
+    function handleMove(index) {
+      if (board[index] || gameOver) return;
 
-  function handleMove(index) {
-    if (board[index] || gameOver) return;
-    board[index] = currentPlayer;
-    render();
+      // --- Infinite Logic Start ---
+      if (isInfinite) {
+        const currentMoves = currentPlayer === "X" ? xMoves : oMoves;
+        
+        // If we already have 3 pieces, remove the oldest one
+        if (currentMoves.length >= 3) {
+          const removeIndex = currentMoves.shift(); // Remove first element (FIFO)
+          board[removeIndex] = null; // Clear from board
+        }
+        
+        // Add new move
+        currentMoves.push(index);
+      }
+      // --- Infinite Logic End ---
 
-    if (checkWin(currentPlayer)) {
-      statusEl.textContent = `${currentPlayer} wins!`;
-      gameOver = true;
-    } else if (board.every(cell => cell)) {
-      statusEl.textContent = "It's a draw!";
-      gameOver = true;
-    } else {
+      board[index] = currentPlayer;
+      
+      // Check for win BEFORE switching players
+      if (checkWin(currentPlayer)) {
+        render(); // Render one last time to show the move
+        statusEl.textContent = `${currentPlayer} wins!`;
+        gameOver = true;
+        return;
+      } 
+      
+      // Check for Draw (Only possible in Standard Mode)
+      if (!isInfinite && board.every(cell => cell)) {
+        render();
+        statusEl.textContent = "It's a draw!";
+        gameOver = true;
+        return;
+      }
+
+      // Switch Player
       currentPlayer = currentPlayer === "X" ? "O" : "X";
-      updateStatus();
-      if (getMode() === "bot" && currentPlayer === "O") {
+      statusEl.textContent = `Next turn: ${currentPlayer}`;
+      render();
+
+      // Handle Bot (Standard Mode Only)
+      if (!isInfinite && getMode() === "bot" && currentPlayer === "O") {
         setTimeout(botMove, 300);
       } else if (getMode().startsWith("rl") && currentPlayer === "O") {
         statusEl.textContent = "RL agent not implemented yet.";
       }
     }
-  }
 
-    // Unbeatable bot using Minimax
+    // Unbeatable bot using Minimax (Standard Mode Only)
     function botMove() {
+      if (gameOver) return;
       const bestMove = minimax(board, "O").index;
       if (bestMove !== undefined) {
         handleMove(bestMove);
@@ -244,6 +362,7 @@
       return modeEl.value;
     }
 
+    // Initial Render
     render();
   </script>
 </body>
